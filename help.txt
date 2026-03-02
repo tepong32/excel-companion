@@ -1,0 +1,14 @@
+# How to Use tEppy's Data Entry App
+
+1. Open your Excel or ODS template file using **File → Open** or `Ctrl+O`.
+2. Enter your data row-by-row using the input fields on top.
+3. Press **Tab** or **Enter** to move between fields.
+4. Press **Enter/Tab** on the last field to automatically add the row.
+5. Use **Ctrl+S** to save, or enable **Auto-Save** in the toolbar.
+6. Double-click a row to edit, and press **Escape** to cancel editing.
+7. Switch themes anytime using the **Theme** dropdown.
+
+💡 Tips:
+- Red highlight = missing/invalid input.
+- Yellow highlight = possible duplicate (warning).
+- Green flash = successful add/update/delete.

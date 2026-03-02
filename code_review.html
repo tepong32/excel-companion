@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Code Review — tEppy's Data Entry App</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Sora:wght@400;600;700&display=swap');
+
+  :root {
+    --bg: #0f1117;
+    --surface: #181c27;
+    --card: #1e2333;
+    --border: #2a3045;
+    --accent-green: #3dffa0;
+    --accent-yellow: #f7c948;
+    --accent-red: #ff5f6a;
+    --accent-blue: #5ab4ff;
+    --accent-purple: #b78fff;
+    --text: #e2e8f0;
+    --muted: #7a8598;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Sora', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+
+  .hero {
+    text-align: center;
+    margin-bottom: 48px;
+    position: relative;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -40px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    height: 200px;
+    background: radial-gradient(ellipse, rgba(61,255,160,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent-green);
+    border: 1px solid var(--accent-green);
+    border-radius: 20px;
+    padding: 3px 12px;
+    margin-bottom: 16px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    font-size: clamp(24px, 4vw, 36px);
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 8px;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .scorecard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    max-width: 900px;
+    margin: 0 auto 48px;
+  }
+
+  .score-tile {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 16px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s;
+    cursor: default;
+  }
+
+  .score-tile:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+  }
+
+  .score-tile::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent);
+  }
+
+  .score-num {
+    font-size: 36px;
+    font-weight: 700;
+    font-family: var(--mono);
+    color: var(--accent);
+    display: block;
+  }
+
+  .score-label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    max-width: 900px;
+    margin: 0 auto 24px;
+    flex-wrap: wrap;
+  }
+
+  .tab {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .tab:hover { color: var(--text); border-color: #4a5270; }
+  .tab.active {
+    background: var(--card);
+    color: var(--text);
+    border-color: var(--accent-blue);
+  }
+
+  .panel {
+    display: none;
+    max-width: 900px;
+    margin: 0 auto;
+    animation: fadeIn 0.2s ease;
+  }
+
+  .panel.active { display: block; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .section-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .finding {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--sev-color, var(--border));
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin-bottom: 12px;
+    transition: border-color 0.15s;
+  }
+
+  .finding:hover { border-color: var(--sev-color, var(--accent-blue)); }
+
+  .finding-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+
+  .severity {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+
+  .sev-bug { background: rgba(255,95,106,0.15); color: var(--accent-red); --sev-color: var(--accent-red); }
+  .sev-warn { background: rgba(247,201,72,0.15); color: var(--accent-yellow); --sev-color: var(--accent-yellow); }
+  .sev-improve { background: rgba(90,180,255,0.15); color: var(--accent-blue); --sev-color: var(--accent-blue); }
+  .sev-nice { background: rgba(183,143,255,0.15); color: var(--accent-purple); --sev-color: var(--accent-purple); }
+  .sev-praise { background: rgba(61,255,160,0.15); color: var(--accent-green); --sev-color: var(--accent-green); }
+
+  .finding-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    flex: 1;
+  }
+
+  .finding-loc {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .finding-body {
+    font-size: 13px;
+    line-height: 1.65;
+    color: #b0bbd0;
+  }
+
+  code {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: rgba(255,255,255,0.06);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: #d4e0ff;
+  }
+
+  pre {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: #141720;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-top: 10px;
+    overflow-x: auto;
+    line-height: 1.6;
+    color: #c9d5ef;
+  }
+
+  .pre-label {
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--muted);
+    margin-top: 8px;
+    display: block;
+  }
+
+  .checklist-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: opacity 0.2s;
+    user-select: none;
+  }
+
+  .checklist-item.done { opacity: 0.45; }
+
+  .check-box {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    border: 2px solid var(--muted);
+    border-radius: 4px;
+    margin-top: 1px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+
+  .checklist-item.done .check-box {
+    background: var(--accent-green);
+    border-color: var(--accent-green);
+    color: #0f1117;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .check-label { font-size: 13px; color: var(--text); line-height: 1.5; }
+  .check-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .progress-bar-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    height: 8px;
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-green), #00c873);
+    border-radius: 100px;
+    transition: width 0.4s ease;
+  }
+
+  .progress-label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    font-family: var(--mono);
+  }
+
+  .arch-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  .arch-box h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 12px;
+  }
+
+  .file-tree {
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 2;
+  }
+
+  .file-tree .dir { color: var(--accent-blue); }
+  .file-tree .file { color: #c9d5ef; }
+  .file-tree .new { color: var(--accent-green); }
+  .file-tree .comment { color: var(--muted); margin-left: 8px; }
+
+  .tag-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid;
+  }
+
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="badge">Code Review</div>
+  <h1>tEppy's Data Entry App</h1>
+  <p class="subtitle">aaa_gemini.py · 1,349 lines · Python + Tkinter + ttkbootstrap</p>
+</div>
+
+<!-- SCORECARD -->
+<div class="scorecard">
+  <div class="score-tile" style="--accent: var(--accent-green)">
+    <span class="score-num" style="color:var(--accent-green)">B+</span>
+    <div class="score-label">Overall Grade</div>
+  </div>
+  <div class="score-tile" style="--accent: var(--accent-blue)">
+    <span class="score-num" style="color:var(--accent-blue)">8/10</span>
+    <div class="score-label">Purpose Served</div>
+  </div>
+  <div class="score-tile" style="--accent: var(--accent-yellow)">
+    <span class="score-num" style="color:var(--accent-yellow)">5/10</span>
+    <div class="score-label">Maintainability</div>
+  </div>
+  <div class="score-tile" style="--accent: var(--accent-purple)">
+    <span class="score-num" style="color:var(--accent-purple)">7/10</span>
+    <div class="score-label">Feature Completion</div>
+  </div>
+  <div class="score-tile" style="--accent: var(--accent-red)">
+    <span class="score-num" style="color:var(--accent-red)">4</span>
+    <div class="score-label">Bugs Found</div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab active" onclick="showTab('findings')">🔍 Findings</button>
+  <button class="tab" onclick="showTab('architecture')">🏗 Architecture</button>
+  <button class="tab" onclick="showTab('features')">✨ New Features</button>
+  <button class="tab" onclick="showTab('checklist')">✅ Fix Checklist</button>
+</div>
+
+<!-- FINDINGS -->
+<div class="panel active" id="panel-findings">
+
+  <p class="section-title">Bugs</p>
+
+  <div class="finding" style="--sev-color: var(--accent-red)">
+    <div class="finding-header">
+      <span class="severity sev-bug">Bug</span>
+      <span class="finding-title">Help file only opens on Windows</span>
+      <span class="finding-loc">L1269</span>
+    </div>
+    <div class="finding-body">
+      <code>os.startfile()</code> is Windows-only. On macOS or Linux it silently does nothing — no error, no fallback. Since the README mentions Linux Tkinter setup, this is a real gap.
+      <pre># Current:
+os.startfile(help_path) if os.name == 'nt' else None
+
+# Fix:
+import subprocess, sys
+if os.name == 'nt':
+    os.startfile(help_path)
+elif sys.platform == 'darwin':
+    subprocess.Popen(['open', help_path])
+else:
+    subprocess.Popen(['xdg-open', help_path])</pre>
+    </div>
+  </div>
+
+  <div class="finding" style="--sev-color: var(--accent-red)">
+    <div class="finding-header">
+      <span class="severity sev-bug">Bug</span>
+      <span class="finding-title">Silent duplicate try/except in add_row_from_inputs</span>
+      <span class="finding-loc">L1052–1055</span>
+    </div>
+    <div class="finding-body">
+      Both the <code>try</code> and <code>except</code> branch do the exact same thing — writing the cell value. The error is swallowed without logging, meaning if the write fails you'll never know. 
+      <pre># Current (both branches identical):
+try:
+    sheet.cell(row=append_row_excel, column=col_index_excel).value = parsed
+except Exception:
+    sheet.cell(row=append_row_excel, column=col_index_excel).value = parsed
+
+# Fix: just write it, and if you must catch, log it:
+try:
+    sheet.cell(row=append_row_excel, column=col_index_excel).value = parsed
+except Exception as e:
+    self._update_status(f"Cell write error col {col_index_excel}: {e}", "error")</pre>
+    </div>
+  </div>
+
+  <div class="finding" style="--sev-color: var(--accent-red)">
+    <div class="finding-header">
+      <span class="severity sev-bug">Bug</span>
+      <span class="finding-title">Shadow row index desync after deletion</span>
+      <span class="finding-loc">L1198–1212</span>
+    </div>
+    <div class="finding-body">
+      When a row is deleted from the middle of the tree, the <code>shadow_values</code> dict retains its old row indices. Any subsequent hover or edit on rows below the deleted one will read stale or mismatched shadow data. You need to re-index shadow keys after deletion.
+      <pre># After deleting excel_row_index, shift all shadow keys:
+new_shadow = {}
+for (sname, ridx, cidx), val in self.shadow_values.items():
+    if sname == self.active_sheet_name and ridx > display_row_index:
+        new_shadow[(sname, ridx - 1, cidx)] = val
+    elif ridx != display_row_index:
+        new_shadow[(sname, ridx, cidx)] = val
+self.shadow_values = new_shadow</pre>
+    </div>
+  </div>
+
+  <div class="finding" style="--sev-color: var(--accent-red)">
+    <div class="finding-header">
+      <span class="severity sev-bug">Bug</span>
+      <span class="finding-title">Ctrl+N is new file, not "clear fields" as documented</span>
+      <span class="finding-loc">L370 vs README</span>
+    </div>
+    <div class="finding-body">
+      The README says <code>Ctrl+N</code> = "Clear input fields", but the code binds it to <code>self.new_file()</code>. The shortcut for clearing inputs (<code>reset_to_add_mode</code>) is Escape. One of them needs to be corrected — either the docs or the binding.
+    </div>
+  </div>
+
+  <p class="section-title" style="margin-top:32px">Warnings & Code Quality</p>
+
+  <div class="finding" style="--sev-color: var(--accent-yellow)">
+    <div class="finding-header">
+      <span class="severity sev-warn">Warning</span>
+      <span class="finding-title">Bare <code>except:</code> clauses throughout</span>
+      <span class="finding-loc">Multiple</span>
+    </div>
+    <div class="finding-body">
+      Over 20 bare <code>except:</code> or <code>except Exception: pass</code> blocks swallow errors silently. This makes debugging extremely hard. You should at minimum log to a status bar or console. Consider a simple debug flag:
+      <pre>DEBUG = os.getenv("APP_DEBUG", "0") == "1"
+
+def _safe(self, fn, *args, label="", **kwargs):
+    try:
+        return fn(*args, **kwargs)
+    except Exception as e:
+        if DEBUG:
+            print(f"[{label}] {e}")
+        return None</pre>
+    </div>
+  </div>
+
+  <div class="finding" style="--sev-color: var(--accent-yellow)">
+    <div class="finding-header">
+      <span class="severity sev-warn">Warning</span>
+      <span class="finding-title">Two overlapping tooltip systems</span>
+      <span class="finding-loc">L35–61, L300–327</span>
+    </div>
+    <div class="finding-body">
+      There is a standalone <code>ToolTip</code> class AND a manual <code>_show_tooltip / _hide_tooltip</code> method inside the app class doing the same thing. The class-based one binds to Enter/Leave; the method-based one is called from hover logic. Pick one and delete the other.
+    </div>
+  </div>
+
+  <div class="finding" style="--sev-color: var(--accent-yellow)">
+    <div class="finding-header">
+      <span class="severity sev-warn">Warning</span>
+      <span class="finding-title"><code>_flush_shadow_to_workbook</code> is a stub that does nothing</span>
+      <span class="finding-loc">L1217–1219</span>
+    </div>
+    <div class="finding-body">
+      The method exists with a comment "safety flush if needed" but has only a <code>pass</code> body. Either implement it or remove it. Dead code like this misleads future readers.
+    </div>
+  </div>
+
+  <div class="finding" style="--sev-color: var(--accent-yellow)">
+    <div class="finding-header">
+      <span class="severity sev-warn">Warning</span>
+      <span class="finding-title">Prefs file saved next to the Excel file (pollution risk)</span>
+      <span class="finding-loc">L1281</span>
+    </div>
+    <div class="finding-body">
+      <code>filepath + ".prefs.json"</code> creates a config file in the user's spreadsheet directory, which may be a shared or cloud-synced folder. A cleaner approach is a standard app-config directory:
+      <pre>import platformdirs
+prefs_dir = platformdirs.user_config_dir("tEppy_DataEntry")
+os.makedirs(prefs_dir, exist_ok=True)
+# Use a hash of filepath as the prefs filename</pre>
+    </div>
+  </div>
+
+  <div class="finding" style="--sev-color: var(--accent-yellow)">
+    <div class="finding-header">
+      <span class="severity sev-warn">Warning</span>
+      <span class="finding-title">ID auto-detection uses broad "id" substring match</span>
+      <span class="finding-loc">L772</span>
+    </div>
+    <div class="finding-body">
+      <code>"id" in h_lower</code> will match "modified", "valid", "liquid", "candidate" etc. Use word-boundary matching:
+      <pre>import re
+ID_PATTERN = re.compile(r'\bid\b|^id$|_id$|^id_', re.IGNORECASE)
+if ID_PATTERN.search(h_lower): ...</pre>
+    </div>
+  </div>
+
+  <p class="section-title" style="margin-top:32px">Strengths 🏅</p>
+
+  <div class="finding" style="--sev-color: var(--accent-green)">
+    <div class="finding-header">
+      <span class="severity sev-praise">Praise</span>
+      <span class="finding-title">Excel-style rounding with Decimal is excellent</span>
+      <span class="finding-loc">L178–186</span>
+    </div>
+    <div class="finding-body">
+      Using <code>Decimal + ROUND_HALF_UP</code> avoids Python float rounding quirks. This is exactly how Excel rounds, and using the "▲ " prefix to visually flag rounded values in the tree is a clever, user-friendly touch.
+    </div>
+  </div>
+
+  <div class="finding" style="--sev-color: var(--accent-green)">
+    <div class="finding-header">
+      <span class="severity sev-praise">Praise</span>
+      <span class="finding-title">Shadow value store is a smart design</span>
+      <span class="finding-loc">L285–295</span>
+    </div>
+    <div class="finding-body">
+      Keeping a parallel dict of raw/parsed/rounded data separate from the Treeview display is architecturally sound. Treeviews can only store strings, so this pattern cleanly separates display from data — good thinking.
+    </div>
+  </div>
+
+  <div class="finding" style="--sev-color: var(--accent-green)">
+    <div class="finding-header">
+      <span class="severity sev-praise">Praise</span>
+      <span class="finding-title">Universal file loader handles 5 formats gracefully</span>
+      <span class="finding-loc">L66–103</span>
+    </div>
+    <div class="finding-body">
+      <code>load_any_excel()</code> is well-structured with proper extension routing, embedded image warnings, and a clean fallback to in-memory conversion. The <code>RuntimeError</code> wrapping gives useful messages to the UI layer.
+    </div>
+  </div>
+
+</div>
+
+<!-- ARCHITECTURE -->
+<div class="panel" id="panel-architecture">
+
+  <div class="arch-box">
+    <h3>Current Structure (Everything in one file)</h3>
+    <div class="file-tree">
+      <div><span class="file">📄 aaa_gemini.py</span> <span class="comment">— 1,349 lines, all logic in one place</span></div>
+    </div>
+    <div style="margin-top:12px; font-size:13px; color:#b0bbd0; line-height:1.7">
+      The app is a monolith: utilities, UI, file I/O, validation, business logic, and state management are all inside one giant class + a few top-level functions. For a solo project this is workable, but as features grow (and they will), it becomes increasingly painful to navigate and test.
+    </div>
+  </div>
+
+  <div class="arch-box">
+    <h3>✅ Recommended Split (4 files)</h3>
+    <div class="file-tree">
+      <div><span class="dir">📁 data_entry_app/</span></div>
+      <div style="margin-left:20px"><span class="new">📄 main.py</span> <span class="comment">— entry point, Window init only</span></div>
+      <div style="margin-left:20px"><span class="new">📄 app.py</span> <span class="comment">— DynamicExcelApp class, UI construction, event wiring</span></div>
+      <div style="margin-left:20px"><span class="new">📄 excel_io.py</span> <span class="comment">— load_any_excel, save logic, prefs read/write</span></div>
+      <div style="margin-left:20px"><span class="new">📄 validation.py</span> <span class="comment">— all validators, normalizers, rounding, date parsing</span></div>
+      <div style="margin-left:20px"><span class="new">📄 widgets.py</span> <span class="comment">— ToolTip, filter row, shadow store helper class</span></div>
+      <div style="margin-left:20px"><span class="file">📄 help.txt</span></div>
+    </div>
+    <div style="margin-top:16px; font-size:13px; color:#b0bbd0; line-height:1.7">
+      <strong style="color:#fff">Benefits:</strong> You can unit-test <code>validation.py</code> in isolation (pytest, no GUI needed). <code>excel_io.py</code> can be reused or swapped. The UI code in <code>app.py</code> becomes much shorter and readable — probably ~400 lines instead of 1,000+.
+    </div>
+  </div>
+
+  <div class="arch-box">
+    <h3>State Management Concern</h3>
+    <div style="font-size:13px; color:#b0bbd0; line-height:1.7">
+      <code>DynamicExcelApp.__init__</code> accumulates 15+ instance attributes that are interdependent: <code>workbook</code>, <code>filepath</code>, <code>active_sheet_name</code>, <code>current_sheet</code>, <code>headers</code>, <code>validation_rules</code>, <code>current_rules</code>, <code>input_order</code>, <code>shadow_values</code>, <code>mode</code>, <code>editing_item</code>, <code>original_editing_values</code>…<br><br>
+      Consider grouping related state into small dataclasses:
+      <pre>from dataclasses import dataclass, field
+
+@dataclass
+class AppState:
+    workbook: object = None
+    filepath: str = None
+    active_sheet_name: str = None
+    headers: list = field(default_factory=list)
+    mode: str = "add"
+    unsaved_changes: bool = False</pre>
+      This makes it much easier to reset state cleanly when opening a new file.
+    </div>
+  </div>
+
+  <div class="arch-box">
+    <h3>What the Code Does Well (Architecturally)</h3>
+    <div style="font-size:13px; color:#b0bbd0; line-height:1.7">
+      The separation between <strong>display layer</strong> (Treeview with string values) and <strong>data layer</strong> (shadow dict + openpyxl workbook) is the right instinct. The validation rules being stored as dicts with BooleanVar/StringVar tied to UI controls is also clean — the UI and logic share the same data structure without a complex event bus.
+    </div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<div class="panel" id="panel-features">
+
+  <p class="section-title">High-Value Additions to Consider</p>
+
+  <div class="finding" style="--sev-color: var(--accent-purple)">
+    <div class="finding-header">
+      <span class="severity sev-nice">Feature Idea</span>
+      <span class="finding-title">Undo / Redo (Ctrl+Z / Ctrl+Y)</span>
+    </div>
+    <div class="finding-body">
+      Currently there's no way to undo an accidental add or edit. A simple command history stack using Python's <code>collections.deque</code> with snapshots of the workbook sheet rows would cover the most common use cases. Even just a single-level undo ("undo last add") would be a huge quality-of-life improvement.
+    </div>
+  </div>
+
+  <div class="finding" style="--sev-color: var(--accent-purple)">
+    <div class="finding-header">
+      <span class="severity sev-nice">Feature Idea</span>
+      <span class="finding-title">Row count & column summary in status bar</span>
+    </div>
+    <div class="finding-body">
+      Show "Rows: 142 · Filtered: 12 · Sheet: Sales" in the status bar. This is a tiny change but gives immediate data context, especially when filters are active and the user can't tell how many rows are hidden.
+    </div>
+  </div>
+
+  <div class="finding" style="--sev-color: var(--accent-purple)">
+    <div class="finding-header">
+      <span class="severity sev-nice">Feature Idea</span>
+      <span class="finding-title">Duplicate Row shortcut (Ctrl+D)</span>
+    </div>
+    <div class="finding-body">
+      The README documents <code>Ctrl+D</code> as "Duplicate row" but there is no binding or method for it in the code. This is an unimplemented feature — add it as a quick win: copy selected row values into the input fields without committing, letting the user tweak before adding.
+    </div>
+  </div>
+
+  <div class="finding" style="--sev-color: var(--accent-purple)">
+    <div class="finding-header">
+      <span class="severity sev-nice">Feature Idea</span>
+      <span class="finding-title">Export filtered view to new Excel file</span>
+    </div>
+    <div class="finding-body">
+      When the user has filtered the treeview to a subset of rows, add a "Export View" button/menu item that saves only the currently visible rows as a new .xlsx. Very useful for office clerks who need to share a subset of the master sheet.
+    </div>
+  </div>
+
+  <div class="finding" style="--sev-color: var(--accent-purple)">
+    <div class="finding-header">
+      <span class="severity sev-nice">Feature Idea</span>
+      <span class="finding-title">Column sort by clicking headers</span>
+    </div>
+    <div class="finding-body">
+      Clicking a Treeview column heading could toggle sort ascending/descending. Tkinter Treeview doesn't do this automatically, but it's straightforward to implement with an <code>all_rows</code> re-sort and tree reload. Add a sort indicator (↑ ↓) to the heading text.
+    </div>
+  </div>
+
+  <div class="finding" style="--sev-color: var(--accent-purple)">
+    <div class="finding-header">
+      <span class="severity sev-nice">Feature Idea</span>
+      <span class="finding-title">Optional dark/light mode persistence per-theme</span>
+    </div>
+    <div class="finding-body">
+      The theme is saved per-file in prefs. Consider making it a global app preference instead — most users want the same theme across all files. Move it to a separate <code>app_global.prefs.json</code> in the user config dir.
+    </div>
+  </div>
+
+  <div class="finding" style="--sev-color: var(--accent-blue)">
+    <div class="finding-header">
+      <span class="severity sev-improve">Quick Win</span>
+      <span class="finding-title">Ctrl+D (Duplicate) is documented but missing</span>
+    </div>
+    <div class="finding-body">
+      Add to <code>_bind_shortcuts</code>:
+      <pre>self.root.bind("<Control-d>", lambda e: self.duplicate_selected_row())
+
+def duplicate_selected_row(self):
+    sel = self.tree.focus()
+    if not sel: return
+    values = self.tree.item(sel, "values")
+    self.clear_input_entries()
+    for i, entry in enumerate(self.input_entries):
+        if i < len(values):
+            v = values[i]
+            if isinstance(v, str) and v.startswith("▲ "):
+                v = v[2:]
+            entry.insert(0, v)
+    self.reset_to_add_mode()
+    self._update_status("Row duplicated into input fields.", "info")</pre>
+    </div>
+  </div>
+
+  <div class="finding" style="--sev-color: var(--accent-blue)">
+    <div class="finding-header">
+      <span class="severity sev-improve">Quick Win</span>
+      <span class="finding-title">Insert Blank Row (Ctrl+Shift+I) also missing</span>
+    </div>
+    <div class="finding-body">
+      Like Ctrl+D, this is documented in the README but not implemented in the current code file. It would insert an empty row in the workbook at the current selection index using <code>sheet.insert_rows()</code>.
+    </div>
+  </div>
+
+</div>
+
+<!-- CHECKLIST -->
+<div class="panel" id="panel-checklist">
+
+  <div class="progress-label" id="prog-label">0 / 10 items fixed</div>
+  <div class="progress-bar-wrap">
+    <div class="progress-bar-fill" id="prog-bar" style="width:0%"></div>
+  </div>
+
+  <div id="checklist">
+    <div class="checklist-item" onclick="toggleCheck(this)">
+      <div class="check-box"></div>
+      <div>
+        <div class="check-label">🐛 Fix <code>_show_help</code> for macOS/Linux</div>
+        <div class="check-meta">Replace os.startfile with cross-platform subprocess call · L1269</div>
+      </div>
+    </div>
+
+    <div class="checklist-item" onclick="toggleCheck(this)">
+      <div class="check-box"></div>
+      <div>
+        <div class="check-label">🐛 Fix duplicate try/except in <code>add_row_from_inputs</code></div>
+        <div class="check-meta">Both branches do the same thing — clean up the except block · L1052–1055</div>
+      </div>
+    </div>
+
+    <div class="checklist-item" onclick="toggleCheck(this)">
+      <div class="check-box"></div>
+      <div>
+        <div class="check-label">🐛 Fix shadow index desync after row deletion</div>
+        <div class="check-meta">Re-index shadow_values keys after deleting a row · L1198–1212</div>
+      </div>
+    </div>
+
+    <div class="checklist-item" onclick="toggleCheck(this)">
+      <div class="check-box"></div>
+      <div>
+        <div class="check-label">🐛 Fix Ctrl+N — code vs docs mismatch</div>
+        <div class="check-meta">README says "clear fields", code does "new file" — pick one · L370</div>
+      </div>
+    </div>
+
+    <div class="checklist-item" onclick="toggleCheck(this)">
+      <div class="check-box"></div>
+      <div>
+        <div class="check-label">⚠️ Replace bare <code>except:</code> blocks with logged exceptions</div>
+        <div class="check-meta">Add DEBUG flag and log errors instead of silently swallowing them</div>
+      </div>
+    </div>
+
+    <div class="checklist-item" onclick="toggleCheck(this)">
+      <div class="check-box"></div>
+      <div>
+        <div class="check-label">⚠️ Remove one of the two tooltip systems</div>
+        <div class="check-meta">ToolTip class vs _show_tooltip method — keep the class · L35–61, L300–327</div>
+      </div>
+    </div>
+
+    <div class="checklist-item" onclick="toggleCheck(this)">
+      <div class="check-box"></div>
+      <div>
+        <div class="check-label">⚠️ Remove or implement <code>_flush_shadow_to_workbook</code></div>
+        <div class="check-meta">Dead stub method — either build it or delete it · L1217</div>
+      </div>
+    </div>
+
+    <div class="checklist-item" onclick="toggleCheck(this)">
+      <div class="check-box"></div>
+      <div>
+        <div class="check-label">⚠️ Move prefs file to user config directory</div>
+        <div class="check-meta">Use platformdirs instead of saving next to the Excel file</div>
+      </div>
+    </div>
+
+    <div class="checklist-item" onclick="toggleCheck(this)">
+      <div class="check-box"></div>
+      <div>
+        <div class="check-label">✨ Implement Ctrl+D (Duplicate Row)</div>
+        <div class="check-meta">Documented in README but not coded — easy win</div>
+      </div>
+    </div>
+
+    <div class="checklist-item" onclick="toggleCheck(this)">
+      <div class="check-box"></div>
+      <div>
+        <div class="check-label">✨ Implement Ctrl+Shift+I (Insert Blank Row)</div>
+        <div class="check-meta">Also documented but missing from the codebase</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function showTab(id) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelector(`#panel-${id}`).classList.add('active');
+    event.target.classList.add('active');
+  }
+
+  function toggleCheck(el) {
+    el.classList.toggle('done');
+    const box = el.querySelector('.check-box');
+    box.textContent = el.classList.contains('done') ? '✓' : '';
+    updateProgress();
+  }
+
+  function updateProgress() {
+    const items = document.querySelectorAll('.checklist-item');
+    const done = document.querySelectorAll('.checklist-item.done').length;
+    const pct = Math.round((done / items.length) * 100);
+    document.getElementById('prog-bar').style.width = pct + '%';
+    document.getElementById('prog-label').textContent = `${done} / ${items.length} items fixed`;
+  }
+</script>
+</body>
+</html>
